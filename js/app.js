@@ -245,24 +245,33 @@ function editorBox() {
   const hasEntry = !!getEntry(viewDate, store, item);
   const delConfirming = confirmKey === 'cell:' + entryKey(viewDate, store, item);
   const delBtn = hasEntry
-    ? `<button class="ghost-btn ${delConfirming ? 'danger' : ''}" data-action="clear-cell">${delConfirming ? '한번 더' : '지우기'}</button>`
-    : '';
+    ? `<button class="text-btn ${delConfirming ? 'danger-text' : ''}" data-action="clear-cell">${delConfirming ? '한번 더 누르면 지워져요' : '이 칸 지우기'}</button>`
+    : '<span></span>';
   return `<div class="cell-editor">
     <h3>${isHome ? esc(item) + ' · 집에 남은 것(잔)' : esc(store) + ' · ' + esc(item)}</h3>
     ${isHome ? '' : outlookHint(store, item)}
     <div class="editor-fields">${fields}</div>
     ${calc}
-    <div class="btn-row">
-      <button data-action="save-cell">저장</button>
-      ${delBtn}
-      <button class="ghost-btn" data-action="close-editor">닫기</button>
-    </div>
+    <button class="editor-save" data-action="save-cell">저장</button>
+    <div class="editor-links">${delBtn}<button class="text-btn" data-action="close-editor">닫기</button></div>
   </div>`;
 }
 
 function numField(id, label, val) {
-  return `<label class="num-field"><span>${label}</span>
-    <input type="number" inputmode="numeric" id="edit-${id}" value="${val != null ? val : ''}" placeholder="·"></label>`;
+  return `<div class="num-field"><span>${label}</span>
+    <div class="stepper">
+      <button type="button" data-action="step" data-target="${id}" data-delta="-1" aria-label="${label} 줄이기">−</button>
+      <input type="number" inputmode="numeric" id="edit-${id}" value="${val != null ? val : ''}" placeholder="·" min="0">
+      <button type="button" data-action="step" data-target="${id}" data-delta="1" aria-label="${label} 늘리기">＋</button>
+    </div></div>`;
+}
+
+function stepField(target, delta) {
+  const input = document.getElementById('edit-' + target);
+  if (!input) return;
+  const cur = input.value.trim() === '' ? 0 : Number(input.value);
+  input.value = Math.max(0, cur + delta);
+  updateCalcLine();
 }
 
 function outlookHint(store, item) {
@@ -777,6 +786,7 @@ function onScreenClick(e) {
     'close-editor': () => { editing = null; render(); },
     'pick-item': () => { pickingStore = d.store; render(); },
     'fill-left': () => fillLeft(d.value),
+    'step': () => stepField(d.target, Number(d.delta)),
     'date-prev': () => shiftDate(-1),
     'date-next': () => shiftDate(1),
     'date-today': goToday,

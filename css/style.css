@@ -390,22 +390,39 @@ td.stat-cell {
 
 .editor-fields {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 0.55rem;
+  grid-template-columns: 1fr;
+  gap: 0.65rem;
   margin: 0.7rem 0 0.2rem;
 }
-.editor-fields:has(> :only-child) { grid-template-columns: 1fr; }
 
 .num-field span {
   display: block;
-  font-size: 0.85rem;
+  font-size: 0.88rem;
   font-weight: 700;
   color: var(--ink-soft);
   margin-bottom: 0.25rem;
 }
+
+.num-field .stepper {
+  display: grid;
+  grid-template-columns: 64px 1fr 64px;
+  gap: 0.45rem;
+}
+.stepper button {
+  height: 56px;
+  font-size: 1.7rem;
+  font-weight: 800;
+  color: var(--green-deep);
+  background: var(--paper-raise);
+  border: 1.5px solid var(--line);
+  border-radius: 12px;
+}
+.stepper button:active { background: var(--green-soft); }
+
 .num-field input {
   width: 100%;
-  height: 60px;
+  height: 56px;
+  min-width: 0;
   text-align: center;
   font-size: 1.5rem;
   font-weight: 800;
@@ -415,11 +432,44 @@ td.stat-cell {
   border-radius: 12px;
 }
 .num-field input:focus { border-color: var(--green); outline: none; }
+/* 위아래 화살표(브라우저 기본 스피너) 숨김 — 옆의 큰 +/− 버튼을 쓰므로 */
+.num-field input::-webkit-outer-spin-button,
+.num-field input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.num-field input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 
-/* 5번째 칸(내일 가져다 놓을 것)은 한 줄 전체 + 파란 점선으로 구분 */
-.editor-fields > .num-field:nth-child(5) { grid-column: 1 / -1; }
+/* 내일 가져다 놓을 것은 파란 점선으로 구분 */
 #edit-plan { border: 1.5px dashed var(--blue); }
-.editor-fields > .num-field:nth-child(5) span { color: var(--blue); }
+.num-field:has(#edit-plan) span { color: var(--blue); }
+
+.editor-save {
+  width: 100%;
+  min-height: 62px;
+  margin-top: 0.7rem;
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  background: var(--green-deep);
+  color: oklch(98% 0.01 95);
+  border-radius: var(--radius);
+  box-shadow: 0 3px 0 oklch(30% 0.07 145);
+}
+.editor-save:active { transform: translateY(2px); box-shadow: 0 1px 0 oklch(30% 0.07 145); }
+
+.editor-links {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0.4rem;
+}
+.text-btn {
+  min-height: 46px;
+  padding: 0 0.5rem;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  text-decoration: underline;
+}
+.text-btn.danger-text { color: var(--red); font-weight: 800; }
 
 .total-row strong.plan-num { color: var(--blue); }
 
