@@ -1,7 +1,7 @@
 'use strict';
 
 /* 앱을 오프라인에서도 열 수 있게 하는 서비스 워커 */
-const CACHE_NAME = 'ledger-v1';
+const CACHE_NAME = 'ledger-v2';
 const APP_SHELL = [
   './',
   './index.html',
@@ -34,7 +34,8 @@ self.addEventListener('fetch', (e) => {
 
 async function networkFirst(req) {
   try {
-    const res = await fetch(req);
+    // no-cache: CDN 10분 캐시를 건너뛰고 항상 서버에 최신인지 확인 (수정 즉시 반영)
+    const res = await fetch(req, { cache: 'no-cache' });
     const cache = await caches.open(CACHE_NAME);
     cache.put(req, res.clone());
     return res;

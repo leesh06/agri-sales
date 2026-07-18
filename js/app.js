@@ -15,6 +15,7 @@ let viewDate = today();
 let currentTab = 'ledger';
 let editing = null;      // { store, item } — 열려 있는 칸 편집기
 let addingKind = null;   // 'store' | 'item' — 추가 입력창이 열려 있는 목록
+let pickingStore = null; // 카드 보기에서 '＋ 작물 적기'가 열려 있는 가게
 let confirmKey = null;
 let confirmTimer = null;
 let syncTimer = null;
@@ -89,6 +90,7 @@ function switchTab(tab) {
   currentTab = tab;
   editing = null;
   addingKind = null;
+  pickingStore = null;
   confirmKey = null;
   render();
 }
@@ -99,6 +101,14 @@ function render() {
   });
   document.getElementById('screen').innerHTML = TABS[currentTab]();
   updateSyncBadge();
+  updateScrollHint();
+}
+
+function updateScrollHint() {
+  const wrap = document.querySelector('.table-wrap');
+  const hintEl = document.getElementById('scroll-hint');
+  if (!wrap || !hintEl) return;
+  hintEl.hidden = wrap.scrollWidth <= wrap.clientWidth + 4;
 }
 
 /* ===== 장부 화면 ===== */
@@ -131,6 +141,7 @@ function gridView() {
   const editor = editing && editing.store !== HOME_STORE ? editorBox() : '';
   return `<p class="legend">숫자는 <b>지금 남은 개수</b>예요 · 칸을 누르면 적을 수 있어요</p>
     <div class="table-wrap"><table class="ledger"><tbody>${head}${rows}</tbody></table></div>
+    <p class="scroll-hint" id="scroll-hint" hidden>← → 옆으로 밀면 작물이 더 보여요</p>
     <div id="grid-editor">${editor}</div>`;
 }
 
@@ -141,10 +152,11 @@ function gridCell(store, item) {
     return `<button class="cell empty ${on ? 'on' : ''}" data-action="edit-cell"
       data-store="${esc(store)}" data-item="${esc(item)}"><span>＋</span></button>`;
   }
+  const remain = remainOf(e);
   const sold = e.sold != null ? `<em>팔림 ${fmtQty(e.sold)}</em>` : '';
   return `<button class="cell ${on ? 'on' : ''}" data-action="edit-cell"
     data-store="${esc(store)}" data-item="${esc(item)}">
-    <span class="cell-num">${fmtQty(remainOf(e))}</span>${sold}</button>`;
+    <span class="cell-num${remain < 0 ? ' neg' : ''}">${fmtQty(remain)}</span>${sold}</button>`;
 }
 
 function setupHint() {
@@ -166,8 +178,21 @@ function storeCards() {
 }
 
 function storeCard(store) {
-  const rows = state.items.map((item) => itemRow(store, item)).join('');
-  return `<article class="store-card"><h2>${esc(store)}</h2>${rows}</article>`;
+  const shown = state.items.filter((item) =>
+    getEntry(viewDate, store, item) || (editing && editing.store === store && editing.item === item));
+  const rows = shown.map((item) => itemRow(store, item)).join('');
+  return `<article class="store-card"><h2>${esc(store)}</h2>${rows}${cardPicker(store, shown)}</article>`;
+}
+
+function cardPicker(store, shown) {
+  const rest = state.items.filter((i) => !shown.includes(i));
+  if (!rest.length) return '';
+  if (pickingStore !== store) {
+    return `<button class="add-row" data-action="pick-item" data-store="${esc(store)}">＋ 작물 적기</button>`;
+  }
+  const chips = rest.map((i) =>
+    `<button class="chip" data-action="edit-cell" data-store="${esc(store)}" data-item="${esc(i)}">${esc(i)}</button>`).join('');
+  return `<div class="chips">${chips}</div>`;
 }
 
 function itemRow(store, item) {
@@ -188,8 +213,9 @@ function rowStats(e) {
     statChip('팔림', e.sold, 'sold'),
     statChip('회수', e.taken, 'taken'),
   ].filter(Boolean).join('');
+  const remain = remainOf(e);
   return `<span class="row-chips">${chips}</span>
-    <span class="row-now">${fmtQty(remainOf(e))}<small>남음</small></span>`;
+    <span class="row-now${remain < 0 ? ' neg' : ''}">${fmtQty(remain)}<small>남음</small></span>`;
 }
 
 function statChip(label, v, cls) {
@@ -210,8 +236,14 @@ function editorBox() {
     ? numField('left', '집에 남은 것', e.left)
     : numField('left', '남아 있던 것', e.left) + numField('added', '새로 갖다 놓음', e.added)
       + numField('sold', '팔림', e.sold) + numField('taken', '도로 가져옴 (회수)', e.taken);
+  const remain = remainOf(e);
   const calc = isHome ? ''
-    : `<p class="calc-line" id="calc-line">계산하면 지금 <b>${fmtQty(remainOf(e))}개</b> 남아 있어요</p>`;
+    : `<p class="calc-line${remain < 0 ? ' warn' : ''}" id="calc-line">${calcLineText(remain)}</p>`;
+  const hasEntry = !!getEntry(viewDate, store, item);
+  const delConfirming = confirmKey === 'cell:' + entryKey(viewDate, store, item);
+  const delBtn = hasEntry
+    ? `<button class="ghost-btn ${delConfirming ? 'danger' : ''}" data-action="clear-cell">${delConfirming ? '한번 더' : '지우기'}</button>`
+    : '';
   return `<div class="cell-editor">
     <h3>${isHome ? esc(item) + ' · 집에 남은 것(잔)' : esc(store) + ' · ' + esc(item)}</h3>
     ${isHome ? '' : outlookHint(store, item)}
@@ -219,6 +251,7 @@ function editorBox() {
     ${calc}
     <div class="btn-row">
       <button data-action="save-cell">저장</button>
+      ${delBtn}
       <button class="ghost-btn" data-action="close-editor">닫기</button>
     </div>
   </div>`;
@@ -232,7 +265,15 @@ function numField(id, label, val) {
 function outlookHint(store, item) {
   const o = prevOutlook(viewDate, store, item);
   if (!o) return '';
-  return `<p class="hint">지난 기록(${fmtDate(o.date)})으로 계산하면 <b>${fmtQty(o.expected)}개</b> 남아 있을 거예요.</p>`;
+  return `<p class="hint">지난 기록(${fmtDate(o.date)})으로 계산하면 <b>${fmtQty(o.expected)}개</b> 남아 있을 거예요.
+    <button class="mini-btn" data-action="fill-left" data-value="${o.expected}">이 값 넣기</button></p>`;
+}
+
+function calcLineText(remain) {
+  if (remain < 0) {
+    return `숫자가 안 맞아요 — 팔림·회수가 너무 커요 (계산: <b>${fmtQty(remain)}개</b>)`;
+  }
+  return `계산하면 지금 <b>${fmtQty(remain)}개</b> 남아 있어요`;
 }
 
 function prevOutlook(date, store, item) {
@@ -283,6 +324,26 @@ function readNum(id) {
   const el = document.getElementById(id);
   const v = el ? el.value.trim() : '';
   return v === '' ? null : Number(v);
+}
+
+function clearCell() {
+  const { store, item } = editing;
+  const key = entryKey(viewDate, store, item);
+  requestConfirm('cell:' + key, () => {
+    delete state.entries[key];
+    queueOp('deleteEntry', { id: key });
+    editing = null;
+    render();
+    toast('칸을 지웠어요');
+  });
+}
+
+function fillLeft(value) {
+  const input = document.getElementById('edit-left');
+  if (!input) return;
+  input.value = value;
+  updateCalcLine();
+  input.focus();
 }
 
 /* ===== 집 잔량 · 합계 ===== */
@@ -365,8 +426,13 @@ function renderStats() {
     <button data-action="month-next" ${statsMonth === thisMonth() ? 'disabled' : ''} aria-label="다음달 보기">▶</button>
   </div>`;
   if (!items.length) return `<section>${nav}<p class="hint big">이 달에는 기록이 없어요.</p></section>`;
-  const summary = items.map((it) => `<div class="total-row"><b>${esc(it)}</b>
-    팔림 <strong class="sold">${fmtQty(byItem[it].sold)}</strong> · 갖다놓음 <strong>${fmtQty(byItem[it].added)}</strong></div>`).join('');
+  const maxSold = Math.max(1, ...items.map((it) => byItem[it].sold));
+  const summary = items.map((it) => {
+    const pct = Math.round(byItem[it].sold / maxSold * 100);
+    return `<div class="total-row"><b>${esc(it)}</b>
+      팔림 <strong class="sold">${fmtQty(byItem[it].sold)}</strong> · 갖다놓음 <strong>${fmtQty(byItem[it].added)}</strong>
+      <span class="bar"><i style="width:${pct}%"></i></span></div>`;
+  }).join('');
   return `<section>${nav}
     <h2 class="sec-head">이 달 작물별 합계</h2>${summary}
     <h2 class="sec-head">가게별 팔림</h2>${statsTable(stores, items, byStoreItem)}
@@ -656,7 +722,10 @@ function onScreenClick(e) {
   const actions = {
     'edit-cell': () => openEditor(d.store, d.item),
     'save-cell': saveCell,
+    'clear-cell': clearCell,
     'close-editor': () => { editing = null; render(); },
+    'pick-item': () => { pickingStore = d.store; render(); },
+    'fill-left': () => fillLeft(d.value),
     'date-prev': () => shiftDate(-1),
     'date-next': () => shiftDate(1),
     'date-today': goToday,
@@ -684,7 +753,8 @@ function updateCalcLine() {
   if (!el) return;
   const remain = num(readNum('edit-left')) + num(readNum('edit-added'))
     - num(readNum('edit-sold')) - num(readNum('edit-taken'));
-  el.innerHTML = `계산하면 지금 <b>${fmtQty(remain)}개</b> 남아 있어요`;
+  el.innerHTML = calcLineText(remain);
+  el.classList.toggle('warn', remain < 0);
 }
 
 function onScreenKeydown(e) {

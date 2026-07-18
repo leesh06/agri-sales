@@ -168,11 +168,26 @@ input { font: inherit; color: inherit; }
 /* ===== 장부 표 ===== */
 .table-wrap {
   overflow-x: auto;
-  background: var(--paper-raise);
+  background:
+    linear-gradient(to right, var(--paper-raise) 35%, oklch(98.6% 0.009 95 / 0)) 0 0 / 44px 100%,
+    linear-gradient(to left, var(--paper-raise) 35%, oklch(98.6% 0.009 95 / 0)) 100% 0 / 44px 100%,
+    linear-gradient(to right, oklch(60% 0.03 100 / 0.35), oklch(60% 0.03 100 / 0)) 0 0 / 16px 100%,
+    linear-gradient(to left, oklch(60% 0.03 100 / 0.35), oklch(60% 0.03 100 / 0)) 100% 0 / 16px 100%,
+    var(--paper-raise);
+  background-repeat: no-repeat;
+  background-attachment: local, local, scroll, scroll, scroll;
   border: 1px solid var(--line);
   border-radius: 16px;
   padding: 0.35rem 0.55rem;
   box-shadow: 0 2px 10px oklch(75% 0.02 100 / 0.3);
+}
+
+.scroll-hint {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  text-align: right;
+  margin: 0.35rem 0.2rem 0;
 }
 
 table.ledger {
@@ -198,8 +213,8 @@ table.ledger th.store-col {
   text-align: left;
   font-size: 1.02rem;
   color: var(--ink);
-  min-width: 74px;
-  max-width: 110px;
+  min-width: 64px;
+  max-width: 100px;
   overflow-wrap: anywhere;
 }
 
@@ -208,7 +223,7 @@ table.ledger tr:first-child th.store-col { color: var(--green-deep); }
 table.ledger td {
   padding: 0;
   border-bottom: 1px solid var(--line);
-  min-width: 96px;
+  min-width: 76px;
 }
 table.ledger tr:last-child td,
 table.ledger tr:last-child th.store-col { border-bottom: none; }
@@ -314,6 +329,52 @@ td.stat-cell {
   color: var(--ink);
 }
 .calc-line b { font-size: 1.1rem; color: var(--green-deep); }
+.calc-line.warn { color: var(--red); font-weight: 700; }
+.calc-line.warn b { color: var(--red); }
+
+.cell-num.neg, .row-now.neg { color: var(--red); }
+
+.mini-btn {
+  margin-left: 0.3rem;
+  padding: 0.2rem 0.7rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: oklch(98% 0.01 95);
+  background: var(--green);
+  border-radius: 999px;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  padding: 0.55rem 0 0.65rem;
+}
+.chip {
+  min-height: 46px;
+  padding: 0.3rem 1rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--green-deep);
+  background: var(--paper);
+  border: 1.5px solid var(--green);
+  border-radius: 999px;
+}
+
+.bar {
+  display: block;
+  height: 8px;
+  margin-top: 0.4rem;
+  background: oklch(93% 0.01 95);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.bar i {
+  display: block;
+  height: 100%;
+  background: var(--orange);
+  border-radius: 999px;
+}
 
 /* ===== 칸 편집기 ===== */
 .cell-editor {
@@ -468,6 +529,7 @@ input[type="url"] {
 }
 .btn-row button:disabled { opacity: 0.4; }
 .btn-row button.ghost-btn { background: transparent; color: var(--ink-soft); border: 1.5px solid var(--line); }
+.btn-row button.danger { background: var(--red); color: oklch(98% 0.01 95); border-color: var(--red); }
 
 /* ===== 하단 탭 ===== */
 .tabbar {
