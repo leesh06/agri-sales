@@ -154,9 +154,10 @@ function gridCell(store, item) {
   }
   const remain = remainOf(e);
   const sold = e.sold != null ? `<em>팔림 ${fmtQty(e.sold)}</em>` : '';
+  const plan = e.plan != null ? `<em class="plan">내일 ${fmtQty(e.plan)}</em>` : '';
   return `<button class="cell ${on ? 'on' : ''}" data-action="edit-cell"
     data-store="${esc(store)}" data-item="${esc(item)}">
-    <span class="cell-num${remain < 0 ? ' neg' : ''}">${fmtQty(remain)}</span>${sold}</button>`;
+    <span class="cell-num${remain < 0 ? ' neg' : ''}">${fmtQty(remain)}</span>${sold}${plan}</button>`;
 }
 
 function setupHint() {
@@ -212,6 +213,7 @@ function rowStats(e) {
     statChip('놓음', e.added, 'added'),
     statChip('팔림', e.sold, 'sold'),
     statChip('회수', e.taken, 'taken'),
+    statChip('내일', e.plan, 'plan'),
   ].filter(Boolean).join('');
   const remain = remainOf(e);
   return `<span class="row-chips">${chips}</span>
@@ -235,7 +237,8 @@ function editorBox() {
   const fields = isHome
     ? numField('left', '집에 남은 것', e.left)
     : numField('left', '남아 있던 것', e.left) + numField('added', '새로 갖다 놓음', e.added)
-      + numField('sold', '팔림', e.sold) + numField('taken', '도로 가져옴 (회수)', e.taken);
+      + numField('sold', '팔림', e.sold) + numField('taken', '도로 가져옴 (회수)', e.taken)
+      + numField('plan', '내일 가져다 놓을 것', e.plan);
   const remain = remainOf(e);
   const calc = isHome ? ''
     : `<p class="calc-line${remain < 0 ? ' warn' : ''}" id="calc-line">${calcLineText(remain)}</p>`;
@@ -277,14 +280,57 @@ function calcLineText(remain) {
 }
 
 function prevOutlook(date, store, item) {
+  const best = latestBefore(date, store, item);
+  if (!best) return null;
+  return { date: best.d, expected: remainOf(best.e) };
+}
+
+function latestBefore(date, store, item) {
   let best = null;
   for (const key in state.entries) {
     const [d, s, it] = key.split(SEP);
     if (s !== store || it !== item || d >= date) continue;
-    if (!best || d > best.date) best = { date: d, e: state.entries[key] };
+    if (!best || d > best.d) best = { d, e: state.entries[key] };
   }
-  if (!best) return null;
-  return { date: best.date, expected: remainOf(best.e) };
+  return best;
+}
+
+/* ===== 하루 자동 이월 =====
+   새 날이 되면: 있던 것 = 어제 계산된 남음, 갖다 놓음 = 어제 적은 '내일 놓을 것' */
+function rollover() {
+  const t = today();
+  let made = 0;
+  for (const store of state.stores.concat(HOME_STORE)) {
+    for (const item of state.items) {
+      if (getEntry(t, store, item)) continue;
+      const prev = latestBefore(t, store, item);
+      if (!prev) continue;
+      const entry = rolledEntry(store, prev.e);
+      if (!entry) continue;
+      const key = entryKey(t, store, item);
+      state.entries[key] = entry;
+      queueOp('upsertEntry', Object.assign({ id: key, date: t, store, item }, entry));
+      made++;
+    }
+  }
+  if (made) render();
+}
+
+function rolledEntry(store, prev) {
+  if (store === HOME_STORE) {
+    if (prev.left == null) return null;
+    return { left: prev.left, added: null, sold: null, taken: null, plan: null, ts: Date.now() };
+  }
+  const remain = remainOf(prev);
+  if (remain <= 0 && prev.plan == null) return null;
+  return {
+    left: remain,
+    added: prev.plan != null ? prev.plan : null,
+    sold: null,
+    taken: null,
+    plan: null,
+    ts: Date.now(),
+  };
 }
 
 function openEditor(store, item) {
@@ -305,15 +351,16 @@ function saveCell() {
   const added = isHome ? null : readNum('edit-added');
   const sold = isHome ? null : readNum('edit-sold');
   const taken = isHome ? null : readNum('edit-taken');
+  const plan = isHome ? null : readNum('edit-plan');
   const key = entryKey(viewDate, store, item);
-  if (left == null && added == null && sold == null && taken == null) {
+  if (left == null && added == null && sold == null && taken == null && plan == null) {
     if (state.entries[key]) {
       delete state.entries[key];
       queueOp('deleteEntry', { id: key });
     }
   } else {
-    state.entries[key] = { left, added, sold, taken, ts: Date.now() };
-    queueOp('upsertEntry', { id: key, date: viewDate, store, item, left, added, sold, taken });
+    state.entries[key] = { left, added, sold, taken, plan, ts: Date.now() };
+    queueOp('upsertEntry', { id: key, date: viewDate, store, item, left, added, sold, taken, plan });
   }
   editing = null;
   render();
@@ -365,9 +412,10 @@ function totalsSection() {
     const t = itemTotals(item);
     const home = t.home != null ? ` · 집 <strong>${fmtQty(t.home)}</strong>` : '';
     const takenPart = t.taken ? ` · 회수 <strong>${fmtQty(t.taken)}</strong>` : '';
+    const planPart = t.plan ? ` · 내일 놓을 것 <strong class="plan-num">${fmtQty(t.plan)}</strong>` : '';
     return `<div class="total-row"><b>${esc(item)}</b>
       갖다놓음 <strong>${fmtQty(t.added)}</strong> · 팔림 <strong class="sold">${fmtQty(t.sold)}</strong>${takenPart}
-      · 가게에 있음 <strong>${fmtQty(t.out)}</strong>${home}</div>`;
+      · 가게에 있음 <strong>${fmtQty(t.out)}</strong>${home}${planPart}</div>`;
   }).join('');
   return `<h2 class="sec-head">${title}</h2>${rows}`;
 }
@@ -376,6 +424,7 @@ function itemTotals(item) {
   let added = 0;
   let sold = 0;
   let taken = 0;
+  let plan = 0;
   let out = 0;
   for (const store of state.stores) {
     const e = getEntry(viewDate, store, item);
@@ -383,10 +432,11 @@ function itemTotals(item) {
     added += num(e.added);
     sold += num(e.sold);
     taken += num(e.taken);
+    plan += num(e.plan);
     out += remainOf(e);
   }
   const homeEntry = getEntry(viewDate, HOME_STORE, item);
-  return { added, sold, taken, out, home: homeEntry ? homeEntry.left : null };
+  return { added, sold, taken, plan, out, home: homeEntry ? homeEntry.left : null };
 }
 
 /* ===== 지난기록 화면 ===== */
@@ -632,18 +682,19 @@ function applyServer(data, sentCount) {
   state.pending = state.pending.slice(sentCount);
   state.entries = {};
   for (const e of data.entries || []) {
-    state.entries[e.id] = { left: e.left, added: e.added, sold: e.sold, taken: e.taken, ts: e.ts || 0 };
+    state.entries[e.id] = { left: e.left, added: e.added, sold: e.sold, taken: e.taken, plan: e.plan, ts: e.ts || 0 };
   }
   state.stores = data.stores || [];
   state.items = data.items || [];
   state.pending.forEach(applyOpLocal);
   saveState();
   render();
+  rollover();
 }
 
 function applyOpLocal(op) {
   const p = op.payload;
-  if (op.op === 'upsertEntry') state.entries[p.id] = { left: p.left, added: p.added, sold: p.sold, taken: p.taken, ts: Date.now() };
+  if (op.op === 'upsertEntry') state.entries[p.id] = { left: p.left, added: p.added, sold: p.sold, taken: p.taken, plan: p.plan, ts: Date.now() };
   else if (op.op === 'deleteEntry') delete state.entries[p.id];
   else if (op.op === 'addStore' && !state.stores.includes(p.name)) state.stores.push(p.name);
   else if (op.op === 'removeStore') state.stores = state.stores.filter((n) => n !== p.name);
@@ -769,6 +820,11 @@ function focusAddInput() {
   if (input) input.focus();
 }
 
+function onFocus() {
+  rollover(); // 자정을 넘겨 다시 열었을 때 새 날 이월 처리
+  scheduleSync();
+}
+
 /* ===== 시작 ===== */
 function init() {
   const screen = document.getElementById('screen');
@@ -779,8 +835,9 @@ function init() {
     b.addEventListener('click', () => switchTab(b.dataset.tab));
   });
   window.addEventListener('online', scheduleSync);
-  window.addEventListener('focus', scheduleSync);
+  window.addEventListener('focus', onFocus);
   render();
+  rollover();
   if (getScriptUrl()) syncNow();
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
 }

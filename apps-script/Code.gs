@@ -58,6 +58,7 @@ function rowToEntry(r) {
     added: cellNum(r[5]),
     sold: cellNum(r[6]),
     taken: cellNum(r[7]),
+    plan: cellNum(r[9]),
     ts: r[8] instanceof Date ? r[8].getTime() : 0,
   };
 }
@@ -84,7 +85,8 @@ function applyOp(op) {
 function upsertEntry(p) {
   const s = sheet(RECORD_SHEET);
   const values = [p.id, p.date, p.store, p.item,
-    blankOrNum(p.left), blankOrNum(p.added), blankOrNum(p.sold), blankOrNum(p.taken), new Date()];
+    blankOrNum(p.left), blankOrNum(p.added), blankOrNum(p.sold), blankOrNum(p.taken),
+    new Date(), blankOrNum(p.plan)];
   const row = findRowById(s, p.id);
   if (row > 0) s.getRange(row, 1, 1, values.length).setValues([values]);
   else s.appendRow(values);

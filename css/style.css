@@ -15,6 +15,7 @@
   --orange-soft: oklch(94% 0.045 70);
   --brown: oklch(45% 0.055 60);
   --brown-soft: oklch(92.5% 0.02 80);
+  --blue: oklch(46% 0.11 255);
   --red: oklch(50% 0.16 27);
   /* 치수 */
   --radius: 14px;
@@ -160,6 +161,7 @@ input { font: inherit; color: inherit; }
 }
 .cell .cell-num { font-size: 1.35rem; font-weight: 800; color: var(--green-deep); }
 .cell em { font-style: normal; font-size: 0.8rem; font-weight: 700; color: var(--orange); }
+.cell em.plan { color: var(--blue); }
 .cell.empty span { font-size: 1.1rem; font-weight: 600; color: oklch(80% 0.02 100); }
 .cell.on { background: var(--green-soft); outline: 2px solid var(--green); }
 
@@ -294,6 +296,7 @@ td.stat-cell {
 .chip-added { background: var(--green-soft); color: var(--green-deep); }
 .chip-sold { background: var(--orange-soft); color: var(--orange); }
 .chip-taken { background: var(--brown-soft); color: var(--brown); }
+.chip-plan { background: oklch(93% 0.035 250); color: var(--blue); }
 
 .row-now {
   flex-shrink: 0;
@@ -412,6 +415,13 @@ td.stat-cell {
   border-radius: 12px;
 }
 .num-field input:focus { border-color: var(--green); outline: none; }
+
+/* 5번째 칸(내일 가져다 놓을 것)은 한 줄 전체 + 파란 점선으로 구분 */
+.editor-fields > .num-field:nth-child(5) { grid-column: 1 / -1; }
+#edit-plan { border: 1.5px dashed var(--blue); }
+.editor-fields > .num-field:nth-child(5) span { color: var(--blue); }
+
+.total-row strong.plan-num { color: var(--blue); }
 
 /* ===== 집 잔량 ===== */
 .home-row { display: flex; flex-wrap: wrap; gap: 0.55rem; }
