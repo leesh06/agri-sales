@@ -306,7 +306,7 @@ function totalsSection() {
     const takenPart = t.taken ? ` · 회수 <strong>${fmtQty(t.taken)}</strong>` : '';
     return `<div class="total-row"><b>${esc(item)}</b>
       갖다놓음 <strong>${fmtQty(t.added)}</strong> · 팔림 <strong class="sold">${fmtQty(t.sold)}</strong>${takenPart}
-      · 밖에 <strong>${fmtQty(t.out)}</strong>${home}</div>`;
+      · 가게에 있음 <strong>${fmtQty(t.out)}</strong>${home}</div>`;
   }).join('');
   return `<h2 class="sec-head">${title}</h2>${rows}`;
 }
