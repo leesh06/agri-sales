@@ -477,7 +477,32 @@ td.stat-cell {
 }
 .text-btn.danger-text { color: var(--red); font-weight: 800; }
 
-.total-row strong.plan-num { color: var(--blue); }
+/* 내일 챙길 것 박스 */
+.plan-box {
+  margin-top: 1.2rem;
+  padding: 0.8rem 1rem;
+  background: oklch(94.5% 0.028 250);
+  border: 1.5px dashed var(--blue);
+  border-radius: var(--radius);
+}
+.plan-box h2 {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--blue);
+  margin-bottom: 0.3rem;
+}
+.plan-box-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.2rem;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+.plan-box-row strong {
+  font-size: 1.35rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--blue);
+}
 
 /* ===== 집 잔량 ===== */
 .home-row { display: flex; flex-wrap: wrap; gap: 0.55rem; }

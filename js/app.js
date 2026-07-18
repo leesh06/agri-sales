@@ -122,9 +122,19 @@ function renderLedger() {
     ${dateNav()}
     ${ready ? viewToggle(gridMode) : ''}
     ${body}
+    ${ready ? planSection() : ''}
     ${ready ? homeSection() : ''}
     ${ready ? totalsSection() : ''}
   </section>`;
+}
+
+function planSection() {
+  const rows = state.items
+    .map((item) => ({ item, total: itemTotals(item).plan }))
+    .filter((r) => r.total > 0);
+  if (!rows.length) return '';
+  const chips = rows.map((r) => `<span>${esc(r.item)} <strong>${fmtQty(r.total)}</strong></span>`).join('');
+  return `<div class="plan-box"><h2>🧺 내일 챙길 것</h2><div class="plan-box-row">${chips}</div></div>`;
 }
 
 function viewToggle(gridMode) {
@@ -444,10 +454,9 @@ function totalsSection() {
     const t = itemTotals(item);
     const home = t.home != null ? ` · 집 <strong>${fmtQty(t.home)}</strong>` : '';
     const takenPart = t.taken ? ` · 회수 <strong>${fmtQty(t.taken)}</strong>` : '';
-    const planPart = t.plan ? ` · 내일 놓을 것 <strong class="plan-num">${fmtQty(t.plan)}</strong>` : '';
     return `<div class="total-row"><b>${esc(item)}</b>
       갖다놓음 <strong>${fmtQty(t.added)}</strong> · 팔림 <strong class="sold">${fmtQty(t.sold)}</strong>${takenPart}
-      · 가게에 있음 <strong>${fmtQty(t.out)}</strong>${home}${planPart}</div>`;
+      · 가게에 있음 <strong>${fmtQty(t.out)}</strong>${home}</div>`;
   }).join('');
   return `<h2 class="sec-head">${title}</h2>${rows}`;
 }
