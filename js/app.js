@@ -6,6 +6,8 @@ const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzGHa9Qgar_D
 const SYNC_DEBOUNCE_MS = 1500;
 const CONFIRM_RESET_MS = 3000;
 const TOAST_MS = 2000;
+const HOLD_START_MS = 450;  // +/- 길게 누르기: 연속 증가 시작까지
+const HOLD_REPEAT_MS = 110; // +/- 길게 누르기: 증가 간격
 const HOME_STORE = '집';   // 집(창고) 잔량은 이 이름의 판매처로 저장
 const SEP = '|';           // 기록 키 구분자: 날짜|판매처|품목
 
@@ -261,7 +263,7 @@ function numField(id, label, val) {
   return `<div class="num-field"><span>${label}</span>
     <div class="stepper">
       <button type="button" data-action="step" data-target="${id}" data-delta="-1" aria-label="${label} 줄이기">−</button>
-      <input type="number" inputmode="numeric" id="edit-${id}" value="${val != null ? val : ''}" placeholder="·" min="0">
+      <input type="number" id="edit-${id}" value="${val != null ? val : ''}" placeholder="·" min="0" readonly tabindex="-1">
       <button type="button" data-action="step" data-target="${id}" data-delta="1" aria-label="${label} 늘리기">＋</button>
     </div></div>`;
 }
@@ -272,6 +274,29 @@ function stepField(target, delta) {
   const cur = input.value.trim() === '' ? 0 : Number(input.value);
   input.value = Math.max(0, cur + delta);
   updateCalcLine();
+}
+
+/* +/- 버튼 길게 누르면 연속으로 증감 */
+let holdTimer = null;
+let holdInterval = null;
+let holdRepeated = false;
+
+function onScreenPointerDown(e) {
+  const btn = e.target.closest('[data-action="step"]');
+  if (!btn) return;
+  clearHold();
+  holdRepeated = false;
+  holdTimer = setTimeout(() => {
+    holdInterval = setInterval(() => {
+      holdRepeated = true;
+      stepField(btn.dataset.target, Number(btn.dataset.delta));
+    }, HOLD_REPEAT_MS);
+  }, HOLD_START_MS);
+}
+
+function clearHold() {
+  clearTimeout(holdTimer);
+  clearInterval(holdInterval);
 }
 
 function outlookHint(store, item) {
@@ -346,11 +371,8 @@ function openEditor(store, item) {
   const same = editing && editing.store === store && editing.item === item;
   editing = same ? null : { store, item };
   render();
-  const input = document.getElementById('edit-left');
-  if (input) {
-    input.focus();
-    input.scrollIntoView({ block: 'center', behavior: 'smooth' });
-  }
+  const editor = document.querySelector('.cell-editor');
+  if (editor) editor.scrollIntoView({ block: 'center', behavior: 'smooth' });
 }
 
 function saveCell() {
@@ -373,6 +395,7 @@ function saveCell() {
   }
   editing = null;
   render();
+  window.scrollTo(0, 0);
   toast('적었어요 ✓');
 }
 
@@ -390,6 +413,7 @@ function clearCell() {
     queueOp('deleteEntry', { id: key });
     editing = null;
     render();
+    window.scrollTo(0, 0);
     toast('칸을 지웠어요');
   });
 }
@@ -399,7 +423,6 @@ function fillLeft(value) {
   if (!input) return;
   input.value = value;
   updateCalcLine();
-  input.focus();
 }
 
 /* ===== 집 잔량 · 합계 ===== */
@@ -786,7 +809,10 @@ function onScreenClick(e) {
     'close-editor': () => { editing = null; render(); },
     'pick-item': () => { pickingStore = d.store; render(); },
     'fill-left': () => fillLeft(d.value),
-    'step': () => stepField(d.target, Number(d.delta)),
+    'step': () => {
+      if (holdRepeated) { holdRepeated = false; return; } // 길게 누르기로 이미 처리됨
+      stepField(d.target, Number(d.delta));
+    },
     'date-prev': () => shiftDate(-1),
     'date-next': () => shiftDate(1),
     'date-today': goToday,
@@ -841,6 +867,9 @@ function init() {
   screen.addEventListener('click', onScreenClick);
   screen.addEventListener('input', onScreenInput);
   screen.addEventListener('keydown', onScreenKeydown);
+  screen.addEventListener('pointerdown', onScreenPointerDown);
+  window.addEventListener('pointerup', clearHold);
+  window.addEventListener('pointercancel', clearHold);
   document.querySelectorAll('.tabbar button').forEach((b) => {
     b.addEventListener('click', () => switchTab(b.dataset.tab));
   });

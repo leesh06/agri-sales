@@ -416,8 +416,14 @@ td.stat-cell {
   background: var(--paper-raise);
   border: 1.5px solid var(--line);
   border-radius: 12px;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
 }
 .stepper button:active { background: var(--green-soft); }
+
+/* 숫자 칸은 보기 전용 — 키패드가 뜨지 않음 */
+.num-field input[readonly] { pointer-events: none; }
 
 .num-field input {
   width: 100%;
